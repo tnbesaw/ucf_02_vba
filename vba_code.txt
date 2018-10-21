@@ -1,0 +1,186 @@
+Option Explicit
+
+Sub PrintHeadings()
+
+    ' Print headings for first summary table
+    Range("I1").Value = "Ticker"
+    Range("J1").Value = "Yearly Change"
+    Range("K1").Value = "Percent Change"
+    Range("L1").Value = "Total Stock Volume"
+    Range("I1:L1").Font.Bold = True
+    
+    ' Print headings and labels for final summary table
+    Range("N2").Value = "Greatest % increase"
+    Range("N3").Value = "Greatest % Decrease"
+    Range("N4").Value = "Greatest total volume"
+    Range("O1:P1").Font.Bold = True
+    Range("O1").Value = "Ticker"
+    Range("P1").Value = "Value"
+    Range("N2:N4").Font.Bold = True
+    
+    
+End Sub
+
+Sub SummarizeSheet()
+    
+    ' Variable for loop iteration
+    Dim i As Long
+    
+    ' Variable to get last data row value (range)
+    Dim lLastRow As Long
+    
+    ' Variable to track unique tickers for summary table
+    Dim lDistinct As Integer
+    
+    ' Variables to store data sheet values
+    Dim lCurrTicker As String
+    Dim lCurrDate As Date
+    Dim lCurrOpen As Double
+    Dim lCurrClose As Double
+    Dim lCurrVolume As Double
+
+    ' Variable to store next values (compare)
+    Dim lNextTicker As String
+
+    ' Variables to store running totals
+    Dim lMinDate As Date
+    Dim lMaxDate As Date
+    Dim lMinOpen As Double
+    Dim lMaxClose As Double
+    Dim lTotVolume As Double
+    Dim lPcntChange As Double
+
+    ' Variables to store overall running totals
+    Dim lMinOverallChange As Double
+    Dim lMinOverallChangeTicker As String
+    Dim lMaxOverallChange As Double
+    Dim lMaxOverallChangeTicker As String
+    Dim lMaxOverallVolume As Double
+    Dim lMaxOverallVolumeTicker As String
+    
+    ' get last row of data on current sheet
+    lLastRow = Cells(Rows.Count, 1).End(xlUp).Row
+
+    ' initialize running values
+    lMinDate = 0
+    lMaxDate = 0
+    lMinOpen = 0
+    lMaxClose = 0
+    lTotVolume = 0
+
+    For i = 2 To lLastRow
+        
+        ' assign local variables with data from worksheet
+        lCurrTicker = Cells(i, 1).Value
+        lCurrDate = CDate(Left(Cells(i, 2).Value, 4) & "/" & Mid(Cells(i, 2).Value, 5, 2) & "/" & Right(Cells(i, 2).Value, 2))
+        lCurrOpen = Cells(i, 3).Value
+        lCurrClose = Cells(i, 6).Value
+        lCurrVolume = Cells(i, 7).Value
+            
+        ' assign next ticker for compare
+        lNextTicker = Cells(i + 1, 1).Value
+            
+        ' evaluate current and add to running totals
+        ' get first open date and value
+        If lMinDate = 0 Or lMinDate > lCurrDate Then
+            lMinDate = lCurrDate
+            lMinOpen = lCurrOpen
+        End If
+        
+        ' get last close date and value
+        If lMaxDate = 0 Or lMaxDate < lCurrDate Then
+            lMaxDate = lCurrDate
+            lMaxClose = lCurrClose
+        End If
+        
+        ' add up total volume
+        lTotVolume = lTotVolume + lCurrVolume
+        
+        ' print total if there is a change (last record for ticker being processed)
+        If lCurrTicker <> lNextTicker Then
+            lDistinct = lDistinct + 1
+            
+            '
+            ' print summary
+            '
+            
+            ' print ticker
+            Range("I" & lDistinct + 1).Value = lCurrTicker
+            
+            ' print yearly change
+            Range("J" & lDistinct + 1).Value = lMaxClose - lMinOpen
+            If Range("J" & lDistinct + 1).Value > 0 Then
+                Range("J" & lDistinct + 1).Interior.ColorIndex = 4
+            Else
+                Range("J" & lDistinct + 1).Interior.ColorIndex = 3
+            End If
+                        
+            ' print percent change
+            If lMinOpen <> 0 Then
+                lPcntChange = (lMaxClose - lMinOpen) / lMinOpen
+            Else
+                lPcntChange = 0
+            End If
+            Range("K" & lDistinct + 1).Value = lPcntChange
+            Range("K" & lDistinct + 1).NumberFormat = "0.00%"
+            
+            ' print total volume
+            Range("L" & lDistinct + 1).Value = lTotVolume
+        
+        
+            '
+            ' Evalulate and set overall values
+            '
+            If lMaxOverallChange < lPcntChange Then
+                lMaxOverallChange = lPcntChange
+                lMaxOverallChangeTicker = lCurrTicker
+            End If
+            
+            If lMinOverallChange > lPcntChange Then
+                lMinOverallChange = lPcntChange
+                lMinOverallChangeTicker = lCurrTicker
+            End If
+            
+            If lMaxOverallVolume < lTotVolume Then
+                lMaxOverallVolume = lTotVolume
+                lMaxOverallVolumeTicker = lCurrTicker
+            End If
+        
+            ' clear running values
+            lMinDate = 0
+            lMaxDate = 0
+            lMinOpen = 0
+            lMaxClose = 0
+            lTotVolume = 0
+        End If
+        
+    Next i
+
+    '
+    ' print overall totals
+    '
+    Range("O2").Value = lMaxOverallChangeTicker
+    Range("P2").Value = lMaxOverallChange
+    Range("P2").NumberFormat = "0.00%"
+    Range("O3").Value = lMinOverallChangeTicker
+    Range("P3").Value = lMinOverallChange
+    Range("P3").NumberFormat = "0.00%"
+    Range("O4").Value = lMaxOverallVolumeTicker
+    Range("P4").Value = lMaxOverallVolume
+
+End Sub
+
+Sub Main()
+    Dim sht As Worksheet
+
+    ' loop through every sheet in workbook and apply methods
+    For Each sht In ThisWorkbook.Worksheets
+        sht.Activate
+        PrintHeadings
+        SummarizeSheet
+        sht.Cells.EntireColumn.AutoFit
+    Next sht
+    
+End Sub
+
+
